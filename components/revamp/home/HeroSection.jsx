@@ -1,68 +1,68 @@
+"use client";
 
 import Image from "next/image";
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback } from "react";
 import { heroImages } from "../assets";
 import {
+  ANIMATION_CONFIG,
+  createEntranceAnimation,
   createFloatingSequence,
   gsap,
+  useGSAP,
 } from "../common/gsapConfig";
 import HeadingContent from "./HeadingContent";
-import bg from "../assets/bg.webp";
 import styles from "./HeroSection.module.scss";
 
-export default function HeroSection({ title, subtitle }) {
+const HeroSection = ({ title, subtitle }) => {
   const imageRefs = useRef([]);
   const containerRef = useRef(null);
+  const sectionRef = useRef(null);
   const [loadedImages, setLoadedImages] = useState(0);
   const [animationStarted, setAnimationStarted] = useState(false);
 
+  // Track image loading
   const handleImageLoad = useCallback(() => {
     setLoadedImages((prev) => prev + 1);
   }, []);
 
+  // Check if all images are loaded
   const allImagesLoaded = loadedImages >= heroImages.length;
 
-  // Start GSAP only after first paint + images loaded
-  useEffect(() => {
-    if (!allImagesLoaded || animationStarted) return;
+  // GSAP animation using useGSAP hook - only start when all images are loaded
+  useGSAP(
+    () => {
+      // Only start animation if all images are loaded and animation hasn't started yet
+      if (!allImagesLoaded || animationStarted) return;
 
-    requestAnimationFrame(() => {
+      // Set initial state - images are below viewport and invisible (original behavior)
       gsap.set(imageRefs.current, {
-        y: 0,
-        opacity: 1,
-        willChange: "transform",
+        ...ANIMATION_CONFIG.initialStates.fromBottom,
+        transformOrigin: "center bottom",
+        willChange: "transform, opacity", // perf hint without changing animation values
       });
 
+      // Create timeline for coordinated animations (original sequence)
       const tl = gsap.timeline();
 
-      tl.from(imageRefs.current, {
-        y: 80,
-        stagger: 0.15,
-        ease: "power3.out",
-        duration: 1,
-      });
+      // Initial pop-up animation with stagger effect (original helper)
+      tl.to(imageRefs.current, createEntranceAnimation(imageRefs.current));
 
+      // Floating animation sequence (original helper)
       createFloatingSequence(tl, imageRefs.current);
+
+      // Infinite repeat (original)
       tl.repeat(-1);
+
+      // Mark animation as started
       setAnimationStarted(true);
-    });
-  }, [allImagesLoaded, animationStarted]);
+    },
+    { scope: containerRef, dependencies: [allImagesLoaded, animationStarted] }
+  );
 
   return (
-    <section className={styles.heroSection}>
-      {/* Background — LCP safe */}
-      <Image
-        src={bg}
-        alt=""
-        fill
-        priority
-        sizes="100vw"
-        className={styles.bgImage}
-      />
-
-      {/* Text renders immediately */}
+    <>
+    <section ref={sectionRef} className={styles.heroSection}>
       <HeadingContent title={title} subtitle={subtitle} />
-
       <div ref={containerRef} className={styles.backgroundWrapper}>
         {heroImages.map((image, index) => (
           <div
@@ -72,17 +72,20 @@ export default function HeroSection({ title, subtitle }) {
           >
             <Image
               src={image}
-              alt=""
+              alt={`Hero Image ${index + 1}`}
               onLoad={handleImageLoad}
-              sizes="(max-width: 768px) 90vw, 600px"
-              priority={index === 0}
-              fetchPriority={index === 0 ? "high" : "auto"}
-              loading={index === 0 ? "eager" : "lazy"}
+              priority={index < 2} 
             />
           </div>
         ))}
       </div>
-      <div className={styles.bottomGreeLine}></div>
+ <div className={styles.bottomGreeLine}></div>
+     
     </section>
+
+    
+    </>
   );
-}
+};
+
+export default HeroSection;
